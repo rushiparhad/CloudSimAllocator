@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cloud Resource Allocation Dashboard</title>
+  <style>
+    :root {
+      --bg-0: #f4efe6;
+      --bg-1: #efe4d2;
+      --ink: #1f2a2e;
+      --muted: #56656c;
+      --panel: rgba(255, 255, 255, 0.78);
+      --line: rgba(31, 42, 46, 0.12);
+      --dyn: #0f766e;
+      --sta: #c2410c;
+      --accent: #b91c1c;
+      --shadow: 0 12px 35px rgba(0, 0, 0, 0.08);
+      --radius: 18px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      font-family: "Avenir Next", "Trebuchet MS", "Gill Sans", sans-serif;
+      background:
+        radial-gradient(circle at 10% -5%, #fffdf8 0, transparent 40%),
+        radial-gradient(circle at 95% 10%, #f8eedf 0, transparent 35%),
+        linear-gradient(150deg, var(--bg-0), var(--bg-1));
+      min-height: 100vh;
+    }
+
+    .wrap {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 24px 18px 42px;
+    }
+
+    .hero {
+      background: linear-gradient(135deg, rgba(15, 118, 110, 0.9), rgba(44, 83, 100, 0.9));
+      color: #f8fffd;
+      border-radius: 24px;
+      padding: 22px 20px;
+      box-shadow: var(--shadow);
+      transform: translateY(10px);
+      opacity: 0;
+      animation: rise 0.7s ease forwards;
+    }
+
+    .hero h1 {
+      margin: 0;
+      font-size: clamp(1.3rem, 3.2vw, 2rem);
+      letter-spacing: 0.3px;
+    }
+
+    .hero p {
+      margin: 10px 0 0;
+      color: rgba(245, 255, 252, 0.92);
+    }
+
+    .grid {
+      margin-top: 16px;
+      display: grid;
+      gap: 14px;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      backdrop-filter: blur(5px);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 14px;
+      opacity: 0;
+      transform: translateY(10px);
+      animation: rise 0.6s ease forwards;
+    }
+
+    .card:nth-child(2) { animation-delay: 0.06s; }
+    .card:nth-child(3) { animation-delay: 0.12s; }
+    .card:nth-child(4) { animation-delay: 0.18s; }
+
+    .label {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .value {
+      margin: 6px 0 0;
+      font-size: clamp(1.1rem, 2.7vw, 1.55rem);
+      font-weight: 700;
+    }
+
+    .hint {
+      margin: 4px 0 0;
+      font-size: 0.86rem;
+      color: var(--muted);
+    }
+
+    .split {
+      margin-top: 14px;
+      display: grid;
+      gap: 14px;
+      grid-template-columns: 2fr 1fr;
+    }
+
+    .chart-title {
+      margin: 0 0 10px;
+      font-size: 1rem;
+      letter-spacing: 0.02em;
+    }
+
+    canvas {
+      width: 100%;
+      height: 300px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.74);
+      border: 1px solid var(--line);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+
+    th, td {
+      padding: 8px 6px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+    }
+
+    th { color: var(--muted); }
+
+    .ok {
+      color: var(--dyn);
+      font-weight: 700;
+    }
+
+    .warn {
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    .small {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 0.84rem;
+    }
+
+    .error {
+      margin-top: 12px;
+      border-radius: 12px;
+      padding: 10px;
+      border: 1px solid rgba(185, 28, 28, 0.25);
+      background: rgba(185, 28, 28, 0.09);
+      color: #7f1d1d;
+      font-size: 0.9rem;
+      display: none;
+    }
+
+    @media (max-width: 980px) {
+      .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .split { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 600px) {
+      .grid { grid-template-columns: 1fr; }
+      canvas { height: 260px; }
+    }
+
+    @keyframes rise {
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <h1>Resource Allocation in Cloud Computing</h1>
+      <p>LSTM workload prediction + DRL-inspired dynamic allocation using CloudSim Plus</p>
+    </section>
+
+    <div id="errorBox" class="error"></div>
+
+    <section class="grid">
+      <article class="card">
+        <p class="label">Dynamic Avg Response Time</p>
+        <p class="value" id="dynResp">-</p>
+        <p class="hint" id="respGain">-</p>
+      </article>
+      <article class="card">
+        <p class="label">Static Avg Response Time</p>
+        <p class="value" id="staResp">-</p>
+        <p class="hint">Lower is better</p>
+      </article>
+      <article class="card">
+        <p class="label">Dynamic Avg Execution Time</p>
+        <p class="value" id="dynExec">-</p>
+        <p class="hint">Lower is better</p>
+      </article>
+      <article class="card">
+        <p class="label">Static Avg Execution Time</p>
+        <p class="value" id="staExec">-</p>
+        <p class="hint" id="execGain">-</p>
+      </article>
+    </section>
+
+    <section class="split">
+      <article class="card">
+        <h2 class="chart-title">Predicted Workload vs VM Allocation (Dynamic)</h2>
+        <canvas id="lineChart" width="900" height="300"></canvas>
+        <p class="small">Lines: predicted workload (orange), allocated VMs (teal, scaled to chart height).</p>
+      </article>
+
+      <article class="card">
+        <h2 class="chart-title">Scenario Comparison</h2>
+        <canvas id="barChart" width="420" height="300"></canvas>
+        <table>
+          <thead>
+            <tr>
+              <th>Policy</th>
+              <th>Cloudlets</th>
+              <th>Avg VM</th>
+            </tr>
+          </thead>
+          <tbody id="summaryBody"></tbody>
+        </table>
+      </article>
+    </section>
+  </div>
+
+  <script>
+    async function loadCsv(path) {
+      const res = await fetch(path, { cache: "no-store" });
+      if (!res.ok) {
+        throw new Error("Could not load " + path + " (" + res.status + ")");
+      }
+      const text = await res.text();
+      const [headerLine, ...lines] = text.trim().split(/\r?\n/);
+      const headers = headerLine.split(",").map(h => h.trim());
+      return lines.filter(Boolean).map(line => {
+        const cols = line.split(",").map(c => c.trim());
+        const row = {};
+        headers.forEach((h, i) => row[h] = cols[i]);
+        return row;
+      });
+    }
+
+    function drawAxes(ctx, w, h, pad) {
+      ctx.strokeStyle = "rgba(20, 28, 32, 0.2)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(pad, pad * 0.5);
+      ctx.lineTo(pad, h - pad);
+      ctx.lineTo(w - pad * 0.5, h - pad);
+      ctx.stroke();
+    }
+
+    function drawLine(ctx, points, color) {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2.2;
+      ctx.beginPath();
+      points.forEach((p, i) => {
+        if (i === 0) ctx.moveTo(p.x, p.y);
+        else ctx.lineTo(p.x, p.y);
+      });
+      ctx.stroke();
+    }
+
+    function drawLineChart(metrics) {
+      const cnv = document.getElementById("lineChart");
+      const ctx = cnv.getContext("2d");
+      const w = cnv.width;
+      const h = cnv.height;
+      const pad = 40;
+
+      ctx.clearRect(0, 0, w, h);
+      drawAxes(ctx, w, h, pad);
+
+      const dynamic = metrics.filter(r => r.policy === "DYNAMIC_DRL");
+      if (!dynamic.length) return;
+
+      const workload = dynamic.map(r => Number(r.predicted_workload));
+      const vms = dynamic.map(r => Number(r.allocated_vms));
+      const maxY = Math.max(...workload, ...vms);
+      const minY = Math.min(...workload, ...vms);
+
+      const toY = (val) => {
+        const t = (val - minY) / ((maxY - minY) || 1);
+        return h - pad - t * (h - 1.5 * pad);
+      };
+      const toX = (i) => pad + (i / Math.max(1, dynamic.length - 1)) * (w - 1.5 * pad);
+
+      const wPoints = workload.map((v, i) => ({ x: toX(i), y: toY(v) }));
+      const vmPoints = vms.map((v, i) => ({ x: toX(i), y: toY(v) }));
+
+      drawLine(ctx, wPoints, "#c2410c");
+      drawLine(ctx, vmPoints, "#0f766e");
+
+      ctx.fillStyle = "#38474f";
+      ctx.font = "12px Avenir Next";
+      ctx.fillText("Workload", w - 130, 20);
+      ctx.fillStyle = "#c2410c";
+      ctx.fillRect(w - 190, 12, 14, 3);
+      ctx.fillStyle = "#38474f";
+      ctx.fillText("Allocated VMs", w - 130, 40);
+      ctx.fillStyle = "#0f766e";
+      ctx.fillRect(w - 190, 32, 14, 3);
+    }
+
+    function drawBarChart(summaryRows) {
+      const cnv = document.getElementById("barChart");
+      const ctx = cnv.getContext("2d");
+      const w = cnv.width;
+      const h = cnv.height;
+      const pad = 36;
+
+      ctx.clearRect(0, 0, w, h);
+      drawAxes(ctx, w, h, pad);
+
+      const dyn = summaryRows.find(r => r.policy === "DYNAMIC_DRL");
+      const sta = summaryRows.find(r => r.policy === "STATIC_BASELINE");
+      if (!dyn || !sta) return;
+
+      const vals = [Number(dyn.avg_response_time), Number(sta.avg_response_time)];
+      const labels = ["Dynamic", "Static"];
+      const colors = ["#0f766e", "#c2410c"];
+      const max = Math.max(...vals) * 1.1;
+
+      vals.forEach((v, i) => {
+        const bw = 70;
+        const gap = 75;
+        const x = pad + 40 + i * (bw + gap);
+        const bh = (v / max) * (h - 1.8 * pad);
+        const y = h - pad - bh;
+
+        ctx.fillStyle = colors[i];
+        ctx.fillRect(x, y, bw, bh);
+
+        ctx.fillStyle = "#263238";
+        ctx.font = "12px Avenir Next";
+        ctx.fillText(labels[i], x + 8, h - 12);
+        ctx.fillText(v.toFixed(2) + "s", x + 8, y - 6);
+      });
+    }
+
+    function fillCards(summaryRows) {
+      const dyn = summaryRows.find(r => r.policy === "DYNAMIC_DRL");
+      const sta = summaryRows.find(r => r.policy === "STATIC_BASELINE");
+      if (!dyn || !sta) return;
+
+      const dResp = Number(dyn.avg_response_time);
+      const sResp = Number(sta.avg_response_time);
+      const dExec = Number(dyn.avg_execution_time);
+      const sExec = Number(sta.avg_execution_time);
+
+      document.getElementById("dynResp").textContent = dResp.toFixed(4) + " s";
+      document.getElementById("staResp").textContent = sResp.toFixed(4) + " s";
+      document.getElementById("dynExec").textContent = dExec.toFixed(4) + " s";
+      document.getElementById("staExec").textContent = sExec.toFixed(4) + " s";
+
+      const respImprove = ((sResp - dResp) / sResp) * 100;
+      const execImprove = ((sExec - dExec) / sExec) * 100;
+
+      document.getElementById("respGain").innerHTML =
+        "Dynamic improves response by <span class='ok'>" + respImprove.toFixed(1) + "%</span>";
+
+      const execClass = execImprove >= 0 ? "ok" : "warn";
+      document.getElementById("execGain").innerHTML =
+        "Execution delta: <span class='" + execClass + "'>" + execImprove.toFixed(2) + "%</span>";
+
+      const body = document.getElementById("summaryBody");
+      body.innerHTML = "";
+      summaryRows.forEach(r => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = "<td>" + r.policy + "</td><td>" + r.total_cloudlets + "</td><td>" + r.avg_vm_count + "</td>";
+        body.appendChild(tr);
+      });
+    }
+
+    function showError(msg) {
+      const box = document.getElementById("errorBox");
+      box.style.display = "block";
+      box.textContent = msg + " Run from project root: `cd cloudsim-project && python3 -m http.server 8080`, then open http://localhost:8080/dashboard/index.html";
+    }
+
+    async function init() {
+      try {
+        const [metrics, summary] = await Promise.all([
+          loadCsv("../data/simulation_metrics.csv"),
+          loadCsv("../data/summary_metrics.csv")
+        ]);
+
+        fillCards(summary);
+        drawLineChart(metrics);
+        drawBarChart(summary);
+      } catch (err) {
+        showError(err.message);
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>

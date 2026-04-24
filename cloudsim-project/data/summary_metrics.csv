@@ -1,0 +1,3 @@
+policy,total_cloudlets,avg_vm_count,avg_execution_time,avg_response_time,avg_resource_utilization,total_makespan
+DYNAMIC_DRL,951,9,17.804130,21.488396,0.963534,1441.550000
+STATIC_BASELINE,951,4,17.807921,36.030307,1.000000,2698.735000
